@@ -161,14 +161,16 @@ contract PayrollManager is AutomationCompatibleInterface {
     /// The caller must be the registered company's owner.
     /// The first payment date is set automatically to block.timestamp + interval.
     function addEmployee(
-        uint256 _companyId,
         string calldata _name,
         address _wallet,
         uint64 _destinationChainSelector,
         address _receiverContract,
         uint256 _salary
-    ) external onlyCompanyOwner(_companyId) {
-        require(companies[_companyId].active, "company inactive");
+    ) external {
+        uint256 _companyId = companyOfOwner[msg.sender];
+        require(_companyId != 0, "not company owner");
+        Company storage company = companies[_companyId];
+        require(company.active, "company inactive");
         require(_wallet != address(0), "zero wallet");
         require(_salary > 0, "salary zero");
 
@@ -180,18 +182,17 @@ contract PayrollManager is AutomationCompatibleInterface {
         e.destinationChainSelector = _destinationChainSelector;
         e.receiverContract = _receiverContract;
         e.salary = _salary;
-        e.nextPayDate = block.timestamp + interval; // first pay = now + interval
+        e.nextPayDate = block.timestamp + interval;
         e.active = true;
         e.employeeId = eid;
 
-        companies[_companyId].employeeIds.push(eid);
+        company.employeeIds.push(eid);
 
         emit EmployeeAdded(_companyId, eid, _name, _wallet, _salary, e.nextPayDate);
     }
 
     /// @notice Update employee details (company owner)
     function updateEmployee(
-        uint256 _companyId,
         uint256 _employeeId,
         string calldata _name,
         address _wallet,
@@ -200,9 +201,12 @@ contract PayrollManager is AutomationCompatibleInterface {
         uint256 _salary,
         uint256 _nextPayDate,
         bool _active
-    ) external onlyCompanyOwner(_companyId) {
+    ) external {
+        uint256 _companyId = companyOfOwner[msg.sender];
+        require(_companyId != 0, "not company owner");
         Employee storage e = employees[_employeeId];
         require(e.companyId == _companyId, "mismatched company");
+
         e.name = _name;
         e.wallet = _wallet;
         e.destinationChainSelector = _destinationChainSelector;
@@ -215,12 +219,18 @@ contract PayrollManager is AutomationCompatibleInterface {
     }
 
     /// @notice Deactivate employee (company owner)
-    function deactivateEmployee(uint256 _companyId, uint256 _employeeId) external onlyCompanyOwner(_companyId) {
+    function deactivateEmployee(uint256 _employeeId) external {
+        uint256 _companyId = companyOfOwner[msg.sender];
+        require(_companyId != 0, "not company owner");
         Employee storage e = employees[_employeeId];
         require(e.companyId == _companyId, "mismatched company");
+
         e.active = false;
         emit EmployeeDeactivated(_companyId, _employeeId);
     }
+
+
+    
 
     // -------------------------
     // Payments & scheduling
@@ -385,5 +395,14 @@ contract PayrollManager is AutomationCompatibleInterface {
             e.active,
             e.employeeId
         );
+    }
+
+    function adminDeactivateEmployee(uint256 _companyId, uint256 _employeeId) external onlyOwner {
+        Employee storage e = employees[_employeeId];
+        require(e.companyId == _companyId, "mismatched company");
+        require(e.active, "already inactive");
+
+        e.active = false;
+        emit EmployeeDeactivated(_companyId, _employeeId);
     }
 }
