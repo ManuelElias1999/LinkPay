@@ -1,19 +1,25 @@
 import { useState } from 'react';
-import { Building2, LayoutDashboard, Users, DollarSign, History } from 'lucide-react';
+import { Building2, LayoutDashboard, Users, Coins, History } from 'lucide-react';
 import { Dashboard } from '../components/Dashboard';
 import { CompanyRegistration } from '../components/CompanyRegistration';
-import { CompanyList } from '../components/CompanyList';
+import { EmployeeList } from '../components/EmployeeList';
 import { PaymentScheduler } from '../components/PaymentScheduler';
 import { PaymentHistory } from '../components/PaymentHistory';
 import { Button } from '../components/ui/button';
 import { Toaster } from '../components/ui/sonner';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 interface Company {
   id: string;
   name: string;
   walletAddress: string;
-  walletType: string;
+  registrationDate: string;
+}
+
+interface Employee {
+  id: string;
+  name: string;
+  walletAddress: string;
   registrationDate: string;
 }
 
@@ -27,7 +33,7 @@ interface Payment {
   status: 'pending' | 'completed' | 'scheduled';
 }
 
-type View = 'dashboard' | 'register' | 'companies' | 'schedule' | 'history';
+type View = 'dashboard' | 'register' | 'employees' | 'schedule' | 'history';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<View>('dashboard');
@@ -36,15 +42,34 @@ export default function App() {
       id: '1',
       name: 'Tech Solutions Inc',
       walletAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb',
-      walletType: 'ethereum',
       registrationDate: '2025-10-15',
     },
     {
       id: '2',
       name: 'Digital Marketing Co',
-      walletAddress: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-      walletType: 'bitcoin',
+      walletAddress: '0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed',
       registrationDate: '2025-10-20',
+    },
+  ]);
+
+  const [employees, setEmployees] = useState<Employee[]>([
+    {
+      id: '1',
+      name: 'John Doe',
+      walletAddress: '0x8ba1f109551bD432803012645Ac136ddd64DBA72',
+      registrationDate: '2025-10-15',
+    },
+    {
+      id: '2',
+      name: 'Jane Smith',
+      walletAddress: '0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed',
+      registrationDate: '2025-10-20',
+    },
+    {
+      id: '3',
+      name: 'Mike Johnson',
+      walletAddress: 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq',
+      registrationDate: '2025-10-25',
     },
   ]);
 
@@ -98,6 +123,20 @@ export default function App() {
     toast.success('Company deleted successfully');
   };
 
+  const handleDeleteEmployee = (id: string) => {
+    setEmployees(employees.filter(e => e.id !== id));
+    toast.success('Employee deleted successfully');
+  };
+
+  const handleUpdateEmployee = (id: string, data: Omit<Employee, 'id' | 'registrationDate'>) => {
+    setEmployees(employees.map(e =>
+        e.id === id
+            ? { ...e, name: data.name, walletAddress: data.walletAddress }
+            : e
+    ));
+    toast.success('Employee updated successfully!');
+  };
+
   const handleSchedulePayment = (paymentData: Omit<Payment, 'id' | 'status'>) => {
     const newPayment: Payment = {
       ...paymentData,
@@ -111,8 +150,8 @@ export default function App() {
   const navItems = [
     { id: 'dashboard' as View, label: 'Dashboard', icon: LayoutDashboard },
     { id: 'register' as View, label: 'Register Company', icon: Building2 },
-    { id: 'companies' as View, label: 'Companies', icon: Users },
-    { id: 'schedule' as View, label: 'Schedule Payment', icon: DollarSign },
+    { id: 'employees' as View, label: 'Employees', icon: Users },
+    { id: 'schedule' as View, label: 'Schedule Payment', icon: Coins },
     { id: 'history' as View, label: 'Payment History', icon: History },
   ];
 
@@ -164,8 +203,12 @@ export default function App() {
           {currentView === 'register' && (
               <CompanyRegistration onRegister={handleRegisterCompany} />
           )}
-          {currentView === 'companies' && (
-              <CompanyList companies={companies} onDelete={handleDeleteCompany} />
+          {currentView === 'employees' && (
+              <EmployeeList
+                  employees={employees}
+                  onDelete={handleDeleteEmployee}
+                  onUpdate={handleUpdateEmployee}
+              />
           )}
           {currentView === 'schedule' && (
               <PaymentScheduler companies={companies} onSchedule={handleSchedulePayment} />
