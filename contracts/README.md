@@ -82,7 +82,7 @@ With this system, companies can register employees, assign salaries, and automat
 
 ### Base Payment Example
 
-* [Transaction Example on Base](https://sepolia.basescan.org/address/0x297599530b23464BD1920093Eb1aaB970b4c6B37)
+* [Transaction Example on Base](https://sepolia.basescan.org/tx/0x7acf7a0d621d36ab7eb90f0c5c302b4f5fde058311be754f43a98ea2341a286b)
 * [Transaction Screenshot](https://drive.google.com/file/d/15q1YkE4ytkn-S3KRlmgJnQg_q7OCIeul/view?usp=sharing)
 
 ---
@@ -103,21 +103,6 @@ With this system, companies can register employees, assign salaries, and automat
 
 * [CCIP Message](https://ccip.chain.link/#/side-drawer/msg/0x13a922a5160b147a64a48282ae02b29f00ec9d0268be19a026c8fa5c9d0c9c12)
 * [Screenshot](https://drive.google.com/file/d/1antjEf22Hc1OQ1sISAFu7vHXZ83bElm3/view?usp=sharing)
-
----
-
-## Architecture Overview
-
-```mermaid
-flowchart TD
-A[Company Owner] --> B[Register Company & Employees]
-B --> C[Chainlink Automation Checks Schedule]
-C --> D{Destination Chain Selector?}
-D -->|0| E[Local Payment on Base]
-D -->|1,2,3| F[Transfer Funds to Contract (Escrow)]
-F --> G[Chainlink CCIP: transferTokensPayLINK()]
-G --> H[Payment Received on Destination Chain]
-```
 
 ---
 
