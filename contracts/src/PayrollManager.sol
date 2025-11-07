@@ -38,6 +38,8 @@ contract PayrollManager is AutomationCompatibleInterface {
     /// Interval between payments (used to advance nextPayDate). Default 5 minutes for testing.
     uint256 public interval;
 
+    address public tokenTransferor;
+
     /// Company structure
     struct Company {
         address owner;
@@ -108,10 +110,18 @@ contract PayrollManager is AutomationCompatibleInterface {
     /// @notice Register a new company by paying the registration fee (one-time).
     /// The company must have approved the contract to spend `registrationFee` USDC.
     /// The registration fee is forwarded to the feeWallet.
+    /// Each wallet can only register one company.
     function registerCompany(string calldata _name) external {
-        require(companyOfOwner[msg.sender] == 0, "company exists");
         require(bytes(_name).length > 0, "name required");
+        require(companyOfOwner[msg.sender] == 0, "wallet already has company");
         require(usdc.allowance(msg.sender, address(this)) >= registrationFee, "approve registrationFee");
+
+        // Double-check (defensive): make sure msg.sender isn't already owner of another registered company
+        for (uint256 i = 0; i < companyIds.length; i++) {
+            if (companies[companyIds[i]].owner == msg.sender) {
+                revert("wallet already registered as owner");
+            }
+        }
 
         bool ok = usdc.transferFrom(msg.sender, feeWallet, registrationFee);
         require(ok, "transferFrom failed");
