@@ -4,10 +4,13 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="abf7777d-23a7-4eb2-9cbf-b3e2d1dcc1c8" name="Changes" comment="">
+    <list default="true" id="d4dae7ec-1c22-43bb-b870-bce345b7d4a2" name="Changes" comment="feat: enhance employee and payment management with company selection and wallet integration">
+      <change afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/frontend/app/layout.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/frontend/app/layout.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/frontend/frontend/app/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/frontend/app/page.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/frontend/components/EmployeeList.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/frontend/components/EmployeeList.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/frontend/components/PaymentScheduler.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/frontend/components/PaymentScheduler.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/frontend/util/interact.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/frontend/util/interact.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -17,64 +20,13 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
-  <component name="MarkdownSettingsMigration">
-    <option name="stateVersion" value="1" />
-  </component>
-  <component name="ProjectId" id="357CaAA3NWUCZ2efpBb6XI4zdio" />
-  <component name="ProjectViewState">
-    <option name="hideEmptyMiddlePackages" value="true" />
-    <option name="showLibraryContents" value="true" />
-  </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
-    "RunOnceActivity.OpenProjectViewOnStart": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "WebServerToolWindowFactoryState": "false",
     "git-widget-placeholder": "feature/frontend",
-    "last_opened_file_path": "D:/hackaton/LinkPay",
-    "nodejs_package_manager_path": "npm",
-    "ts.external.directory.path": "D:\\hackaton\\LinkPay\\frontend\\frontend\\node_modules\\typescript\\lib",
-    "vue.rearranger.settings.migration": "true"
+    "ts.external.directory.path": "/Users/fabriciomaldonado/fabricio/personal/LinkPay/frontend/frontend/node_modules/typescript/lib"
   }
 }]]></component>
-  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
   <component name="TaskManager">
-    <task active="true" id="Default" summary="Default task">
-      <changelist id="abf7777d-23a7-4eb2-9cbf-b3e2d1dcc1c8" name="Changes" comment="" />
-      <created>1762451783484</created>
-      <option name="number" value="Default" />
-      <option name="presentableId" value="Default" />
-      <updated>1762451783484</updated>
-      <workItem from="1762451784916" duration="3226000" />
-      <workItem from="1762458624111" duration="1079000" />
-      <workItem from="1762459841929" duration="292000" />
-    </task>
     <servers />
-  </component>
-  <component name="TypeScriptGeneratedFilesManager">
-    <option name="version" value="3" />
-  </component>
-  <component name="Vcs.Log.Tabs.Properties">
-    <option name="TAB_STATES">
-      <map>
-        <entry key="MAIN">
-          <value>
-            <State>
-              <option name="FILTERS">
-                <map>
-                  <entry key="branch">
-                    <value>
-                      <list>
-                        <option value="main" />
-                      </list>
-                    </value>
-                  </entry>
-                </map>
-              </option>
-            </State>
-          </value>
-        </entry>
-      </map>
-    </option>
   </component>
 </project>

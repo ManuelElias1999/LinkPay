@@ -29,6 +29,11 @@ interface Employee {
   name: string;
   walletAddress: string;
   registrationDate: string;
+  network?: string;
+  chainSelector?: number;
+  paymentStatus?: 'Paid' | 'Pending';
+  nextPayDate?: number;
+  salary?: string;
 }
 
 export function EmployeeList({ employees, companies, currentCompanyId, onDelete, onUpdate, onCompanyChange }: EmployeeListProps) {
@@ -124,7 +129,9 @@ export function EmployeeList({ employees, companies, currentCompanyId, onDelete,
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Wallet Address</TableHead>
-                  <TableHead>Registration Date</TableHead>
+                  <TableHead>Network</TableHead>
+                  <TableHead>Payment Status</TableHead>
+                  <TableHead>Next Pay Date</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -179,6 +186,17 @@ export function EmployeeList({ employees, companies, currentCompanyId, onDelete,
                     <TableRow key={employee.id}>
                       <TableCell>{employee.name}</TableCell>
                       <TableCell className="font-mono text-sm">{employee.walletAddress}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{employee.network || 'Unknown'}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={employee.paymentStatus === 'Paid' ? 'default' : 'secondary'}
+                          className={employee.paymentStatus === 'Paid' ? 'bg-green-500' : 'bg-yellow-500'}
+                        >
+                          {employee.paymentStatus || 'Unknown'}
+                        </Badge>
+                      </TableCell>
                       <TableCell>{employee.registrationDate}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex gap-2 justify-end">

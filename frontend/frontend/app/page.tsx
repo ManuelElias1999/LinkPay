@@ -120,14 +120,66 @@ export default function App() {
       if (companyIdToLoad === 0) return;
 
       const emps = await web3.getEmployeesOfCompany(companyIdToLoad);
-      setEmployees(emps.map((emp: any) => ({
-        id: emp.employeeId.toString(),
-        name: emp.name,
-        walletAddress: emp.wallet,
-        registrationDate: new Date(emp.nextPayDate * 1000).toISOString().split('T')[0]
-      })));
+
+      // Helper function to get network name from chain selector
+      const getNetworkName = (selector: number): string => {
+        const networks: Record<number, string> = {
+          0: 'Base',
+          1: 'Arbitrum',
+          2: 'Avalanche',
+          3: 'Eth Sepolia'
+        };
+        return networks[selector] || 'Unknown';
+      };
+
+      // Helper function to determine payment status
+      const getPaymentStatus = (nextPayDate: number): 'Paid' | 'Pending' => {
+        const now = Math.floor(Date.now() / 1000); // Current time in seconds
+        return nextPayDate > now ? 'Paid' : 'Pending';
+      };
+
+      setEmployees(emps.map((emp: any) => {
+        // Ensure numeric values are properly converted
+        const chainSelector = typeof emp.destinationChainSelector === 'number'
+          ? emp.destinationChainSelector
+          : Number(emp.destinationChainSelector);
+
+        return {
+          id: emp.employeeId.toString(),
+          name: emp.name,
+          walletAddress: emp.wallet,
+          registrationDate: new Date(emp.nextPayDate * 1000).toISOString().split('T')[0],
+          network: getNetworkName(chainSelector),
+          chainSelector: chainSelector,
+          paymentStatus: getPaymentStatus(emp.nextPayDate),
+          nextPayDate: emp.nextPayDate,
+          salary: emp.salary
+        };
+      }));
     } catch (error) {
       console.error("Error loading employees:", error);
+    }
+  }
+
+  async function loadPaymentHistory() {
+    try {
+      // Load payment history for the current user's company
+      // Pass companyId if you want to filter, or undefined for all payments
+      const paymentEvents = await web3.getPaymentHistory(companyId > 0 ? companyId : undefined);
+
+      setPayments(paymentEvents.map((event) => ({
+        id: event.id,
+        companyId: event.companyId.toString(),
+        employeeName: event.employeeName,
+        employeeWallet: event.employeeWallet,
+        amount: parseFloat(event.amount),
+        scheduledDate: new Date(event.timestamp * 1000).toISOString().split('T')[0],
+        status: event.status,
+        transactionHash: event.transactionHash,
+        network: event.network
+      })));
+    } catch (error) {
+      console.error("Error loading payment history:", error);
     }
   }
 
@@ -154,20 +206,22 @@ export default function App() {
         return;
       }
 
-      // Step 2: Approve USDC and WAIT for confirmation
-      toast.info('Approving USDC... Please confirm the transaction in MetaMask');
-      const approvalReceipt = await web3.approveUSDC(fee);
-      toast.success(`USDC approved! Transaction: ${approvalReceipt.transactionHash.substring(0, 10)}...`);
+      // Step 2: Approve USDC with large allowance (1e18) for future payments and WAIT for confirmation
+      toast.info('Approving USDC for registration fee and future payments... Please confirm the transaction in MetaMask');
+      const largeAllowance = "1000000000000000000"; // 1e18 USDC (1 quintillion with 6 decimals = 1 trillion USDC)
+      const approvalReceipt = await web3.approveUSDC(largeAllowance);
+      toast.success(`USDC approved with large allowance! Transaction: ${approvalReceipt.transactionHash.substring(0, 10)}...`);
 
       // Step 3: Register company (now that approval is confirmed)
       toast.info('Registering company... Please confirm the transaction in MetaMask');
       const registerReceipt = await web3.registerCompany(companyData.name);
       toast.success(`Company registered! Transaction: ${registerReceipt.transactionHash.substring(0, 10)}...`);
 
-      // Reload company data and navigate to companies view
+      // Reload company data and navigate to schedule (add employee) view
       await loadCompanyData();
-      setCurrentView('companies');
-      toast.success('Redirecting to Companies view...');
+      await loadEmployees();
+      setCurrentView('schedule');
+      toast.success('Company registered! You can now add employees.');
     } catch (error: any) {
       console.error("Error registering company:", error);
 
@@ -251,7 +305,7 @@ export default function App() {
       }
 
       // Validate inputs
-      if (!paymentData.employeeName || !paymentData.employeeWallet || !paymentData.receiverWallet || !paymentData.amount) {
+      if (!paymentData.employeeName || !paymentData.employeeWallet || !paymentData.amount) {
         toast.error('Please fill in all required fields');
         return;
       }
@@ -291,35 +345,32 @@ export default function App() {
 
       // Map blockchain network to chain selector
       const chainSelectors: Record<string, number> = {
-        'base': 0, // Same chain
-        'ethereum': 1, // Example chain selector
-        'polygon': 2, // Example chain selector
-        'arbitrum': 3, // Example chain selector
+        'base': 0,
+        'arbitrum': 1,
+        'avalanche': 2,
+        'eth-sepolia': 3,
       };
 
       const chainSelector = chainSelectors[paymentData.blockchainNetwork] || 0;
 
-      // Step 1: Check USDC balance
+      // Check USDC balance and allowance
       const balance = await web3.getUSDCBalance();
+      const allowance = await web3.getUSDCAllowance();
       const salaryAmount = paymentData.amount.toString();
 
-      toast.info(`Your USDC balance: ${balance} USDC | Employee salary: ${salaryAmount} USDC`);
+      console.log('USDC Balance:', balance, 'USDC | Allowance:', allowance, 'USDC | Salary needed:', salaryAmount, 'USDC');
 
       if (parseFloat(balance) < parseFloat(salaryAmount)) {
         toast.error(`Insufficient USDC balance. You need at least ${salaryAmount} USDC but only have ${balance} USDC`);
         return;
       }
 
-      // Step 2: Approve USDC for the employee's salary and WAIT for confirmation
-      toast.info('Approving USDC for salary payment... Please confirm the transaction in MetaMask');
-      const approvalReceipt = await web3.approveUSDC(salaryAmount);
-      toast.success(`USDC approved! Transaction: ${approvalReceipt.transactionHash.substring(0, 10)}...`);
+      if (parseFloat(allowance) < parseFloat(salaryAmount)) {
+        toast.error(`Insufficient USDC allowance. Please increase your USDC approval for the PayrollManager contract.`);
+        return;
+      }
 
-      // Verify the allowance was set correctly
-      const allowance = await web3.getUSDCAllowance();
-      console.log('USDC Allowance after approval:', allowance, 'USDC | Salary needed:', salaryAmount, 'USDC');
-
-      // Step 3: Add employee (now that approval is confirmed)
+      // Add employee (USDC was already approved during company registration with large allowance)
       toast.info('Adding employee... Please confirm the transaction in MetaMask');
 
       // Add employee using smart contract and wait for confirmation
@@ -327,7 +378,6 @@ export default function App() {
         paymentData.employeeName,
         paymentData.employeeWallet,
         chainSelector,
-        paymentData.receiverWallet,
         salaryAmount
       );
 
@@ -340,8 +390,8 @@ export default function App() {
       ]);
 
       // Navigate to employees view
-      setCurrentView('companies');
-      toast.success('Employee added successfully! Redirecting to Companies view...');
+      setCurrentView('employees');
+      toast.success('Employee added successfully! View your employee in the Employees tab.');
     } catch (error: any) {
       console.error("Error scheduling payment:", error);
 

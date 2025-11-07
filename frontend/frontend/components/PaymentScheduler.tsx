@@ -33,26 +33,23 @@ export function PaymentScheduler({ companies, onSchedule, currentCompanyId }: Pa
   const [formData, setFormData] = useState({
     employeeName: '',
     employeeWallet: '',
-    receiverWallet: '',
     amount: '',
     blockchainNetwork: 'base',
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.employeeName && formData.employeeWallet && formData.receiverWallet && formData.amount) {
+    if (formData.employeeName && formData.employeeWallet && formData.amount) {
       onSchedule({
         companyId: currentCompanyId,
         employeeName: formData.employeeName,
         employeeWallet: formData.employeeWallet,
-        receiverWallet: formData.receiverWallet,
         amount: parseFloat(formData.amount),
         blockchainNetwork: formData.blockchainNetwork,
       });
       setFormData({
         employeeName: '',
         employeeWallet: '',
-        receiverWallet: '',
         amount: '',
         blockchainNetwork: 'base',
       });
@@ -115,30 +112,15 @@ export function PaymentScheduler({ companies, onSchedule, currentCompanyId }: Pa
                 <Wallet className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                 <Input
                   id="employeeWallet"
-                  placeholder="Enter employee wallet address"
+                  placeholder="0x..."
                   value={formData.employeeWallet}
                   onChange={(e) => setFormData({ ...formData, employeeWallet: e.target.value })}
                   className="pl-10"
                   required
                 />
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="receiverWallet">Receiver Contract Address (same address for same chain)</Label>
-              <div className="relative">
-                <Wallet className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                <Input
-                  id="receiverWallet"
-                  placeholder="Enter receiver contract address"
-                  value={formData.receiverWallet}
-                  onChange={(e) => setFormData({ ...formData, receiverWallet: e.target.value })}
-                  className="pl-10"
-                  required
-                />
-              </div>
               <p className="text-xs text-gray-500">
-                For same-chain payments, use the same wallet address as employee wallet
+                This address will receive payments on the selected blockchain network
               </p>
             </div>
 
@@ -151,13 +133,13 @@ export function PaymentScheduler({ companies, onSchedule, currentCompanyId }: Pa
                 className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 required
               >
-                <option value="base">Base (Same Chain - Chain Selector: 0)</option>
-                <option value="ethereum">Ethereum (Cross-chain)</option>
-                <option value="polygon">Polygon (Cross-chain)</option>
-                <option value="arbitrum">Arbitrum (Cross-chain)</option>
+                <option value="base">Base (Selector: 0)</option>
+                <option value="arbitrum">Arbitrum (Selector: 1)</option>
+                <option value="avalanche">Avalanche (Selector: 2)</option>
+                <option value="eth-sepolia">Ethereum Sepolia (Selector: 3)</option>
               </select>
               <p className="text-xs text-gray-500">
-                Select Base for same-chain payments or other networks for cross-chain via CCIP
+                Select the blockchain network where the employee will receive payments
               </p>
             </div>
 
