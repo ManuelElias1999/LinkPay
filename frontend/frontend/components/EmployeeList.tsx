@@ -1,5 +1,5 @@
 "use client";
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Users, Trash2, Edit, Check, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
@@ -10,8 +10,18 @@ import { Label } from './ui/label';
 
 interface EmployeeListProps {
   employees: Employee[];
+  companies: Company[];
+  currentCompanyId: number;
   onDelete: (id: string) => void;
   onUpdate: (id: string, data: Omit<Employee, 'id' | 'registrationDate'>) => void;
+  onCompanyChange: (companyId: number) => void;
+}
+
+interface Company {
+  id: string;
+  name: string;
+  walletAddress: string;
+  registrationDate: string;
 }
 
 interface Employee {
@@ -21,9 +31,19 @@ interface Employee {
   registrationDate: string;
 }
 
-export function EmployeeList({ employees, onDelete, onUpdate }: EmployeeListProps) {
+export function EmployeeList({ employees, companies, currentCompanyId, onDelete, onUpdate, onCompanyChange }: EmployeeListProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ name: '', walletAddress: '' });
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>(currentCompanyId > 0 ? currentCompanyId.toString() : (companies.length > 0 ? companies[0].id : ''));
+
+  // Sync selectedCompanyId when currentCompanyId or companies change
+  useEffect(() => {
+    if (currentCompanyId > 0) {
+      setSelectedCompanyId(currentCompanyId.toString());
+    } else if (companies.length > 0 && !selectedCompanyId) {
+      setSelectedCompanyId(companies[0].id);
+    }
+  }, [currentCompanyId, companies, selectedCompanyId]);
 
   const handleEdit = (employee: Employee) => {
     setEditingId(employee.id);
@@ -41,6 +61,11 @@ export function EmployeeList({ employees, onDelete, onUpdate }: EmployeeListProp
     setEditForm({ name: '', walletAddress: '' });
   };
 
+  const handleCompanyChange = (companyId: string) => {
+    setSelectedCompanyId(companyId);
+    onCompanyChange(parseInt(companyId));
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -50,6 +75,33 @@ export function EmployeeList({ employees, onDelete, onUpdate }: EmployeeListProp
         </div>
         <Badge variant="secondary">{employees.length} Employees</Badge>
       </div>
+
+      {/* Company Selector */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex items-center gap-4">
+            <Label htmlFor="companySelect" className="whitespace-nowrap font-medium">
+              Select Company:
+            </Label>
+            <select
+              id="companySelect"
+              value={selectedCompanyId}
+              onChange={(e) => handleCompanyChange(e.target.value)}
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
+            >
+              {companies.length === 0 ? (
+                <option value="">No companies registered</option>
+              ) : (
+                companies.map((company) => (
+                  <option key={company.id} value={company.id}>
+                    {company.name} (ID: {company.id})
+                  </option>
+                ))
+              )}
+            </select>
+          </div>
+        </CardContent>
+      </Card>
 
       {employees.length === 0 ? (
         <Card>

@@ -1,6 +1,6 @@
 "use client";
-import { useState } from 'react';
-import { Building2, LayoutDashboard, Users, Coins, History } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Building2, LayoutDashboard, Users, Coins, History, Wallet } from 'lucide-react';
 import { Dashboard } from '../components/Dashboard';
 import { CompanyRegistration } from '../components/CompanyRegistration';
 import { EmployeeList } from '../components/EmployeeList';
@@ -9,6 +9,7 @@ import { PaymentHistory } from '../components/PaymentHistory';
 import { Button } from '../components/ui/button';
 import { Toaster } from '../components/ui/sonner';
 import { toast } from 'sonner';
+import * as web3 from '../util/interact';
 
 interface Company {
   id: string;
@@ -38,80 +39,147 @@ type View = 'dashboard' | 'register' | 'employees' | 'schedule' | 'history';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<View>('dashboard');
-  const [companies, setCompanies] = useState<Company[]>([
-    {
-      id: '1',
-      name: 'Tech Solutions Inc',
-      walletAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb',
-      registrationDate: '2025-10-15',
-    },
-    {
-      id: '2',
-      name: 'Digital Marketing Co',
-      walletAddress: '0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed',
-      registrationDate: '2025-10-20',
-    },
-  ]);
+  const [walletConnected, setWalletConnected] = useState(false);
+  const [account, setAccount] = useState('');
+  const [companyId, setCompanyId] = useState<number>(0);
+  const [selectedEmployeeCompanyId, setSelectedEmployeeCompanyId] = useState<number>(0);
+  const [companies, setCompanies] = useState<Company[]>([]);
 
-  const [employees, setEmployees] = useState<Employee[]>([
-    {
-      id: '1',
-      name: 'John Doe',
-      walletAddress: '0x8ba1f109551bD432803012645Ac136ddd64DBA72',
-      registrationDate: '2025-10-15',
-    },
-    {
-      id: '2',
-      name: 'Jane Smith',
-      walletAddress: '0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed',
-      registrationDate: '2025-10-20',
-    },
-    {
-      id: '3',
-      name: 'Mike Johnson',
-      walletAddress: 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq',
-      registrationDate: '2025-10-25',
-    },
-  ]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
 
-  const [payments, setPayments] = useState<Payment[]>([
-    {
-      id: '1',
-      companyId: '1',
-      employeeName: 'John Doe',
-      employeeWallet: '0x8ba1f109551bD432803012645Ac136ddd64DBA72',
-      amount: 5000,
-      scheduledDate: '2025-11-15',
-      status: 'scheduled',
-    },
-    {
-      id: '2',
-      companyId: '1',
-      employeeName: 'Jane Smith',
-      employeeWallet: '0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed',
-      amount: 4500,
-      scheduledDate: '2025-11-15',
-      status: 'scheduled',
-    },
-    {
-      id: '3',
-      companyId: '2',
-      employeeName: 'Mike Johnson',
-      employeeWallet: 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq',
-      amount: 6000,
-      scheduledDate: '2025-11-10',
-      status: 'completed',
-    },
-  ]);
+  // Connect wallet on mount
+  useEffect(() => {
+    checkIfWalletIsConnected();
+  }, []);
 
-  const handleRegisterCompany = (companyData: Omit<Company, 'id' | 'registrationDate'>) => {
-    const newCompany: Company = {
-      ...companyData,
-      id: Date.now().toString(),
-      registrationDate: new Date().toISOString().split('T')[0],
-    };
-    setCompanies([...companies, newCompany]);
-    toast.success('Company registered successfully!');
+  // Load company data when wallet connects
+  useEffect(() => {
+    if (walletConnected && account) {
+      loadCompanyData();
+    }
+  }, [walletConnected, account]);
+
+  // Load employees when companyId or selectedEmployeeCompanyId changes
+  useEffect(() => {
+    if (companyId > 0) {
+      loadEmployees();
+      setSelectedEmployeeCompanyId(companyId); // Set initial selected company
+    }
+  }, [companyId]);
+
+  useEffect(() => {
+    if (selectedEmployeeCompanyId > 0) {
+      loadEmployees();
+    }
+  }, [selectedEmployeeCompanyId]);
+
+  async function checkIfWalletIsConnected() {
+    if (typeof window !== 'undefined' && window.ethereum) {
+      const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+      if (accounts.length > 0) {
+        await handleConnectWallet();
+      }
+    }
+  }
+
+  async function handleConnectWallet() {
+    try {
+      const walletState = await web3.connectWallet();
+      setAccount(walletState.account);
+      setWalletConnected(true);
+      toast.success(`Connected: ${walletState.account.substring(0, 6)}...${walletState.account.substring(38)}`);
+    } catch (error: any) {
+      console.error("Error connecting wallet:", error);
+      toast.error(error.message || 'Failed to connect wallet');
+    }
+  }
+
+  async function loadCompanyData() {
+    try {
+      // Get the current user's company ID
+      const cid = await web3.getCompanyOfOwner(account);
+      setCompanyId(cid);
+
+      // Load all companies for the selector
+      const allCompanies = await web3.getAllCompanies();
+      setCompanies(allCompanies.map((company: any) => ({
+        id: company.companyId.toString(),
+        name: company.name,
+        walletAddress: company.owner,
+        registrationDate: new Date(company.registrationDate * 1000).toISOString().split('T')[0]
+      })));
+    } catch (error) {
+      console.error("Error loading company data:", error);
+    }
+  }
+
+  async function loadEmployees() {
+    try {
+      const companyIdToLoad = selectedEmployeeCompanyId > 0 ? selectedEmployeeCompanyId : companyId;
+      if (companyIdToLoad === 0) return;
+
+      const emps = await web3.getEmployeesOfCompany(companyIdToLoad);
+      setEmployees(emps.map((emp: any) => ({
+        id: emp.employeeId.toString(),
+        name: emp.name,
+        walletAddress: emp.wallet,
+        registrationDate: new Date(emp.nextPayDate * 1000).toISOString().split('T')[0]
+      })));
+    } catch (error) {
+      console.error("Error loading employees:", error);
+    }
+  }
+
+  function handleEmployeeCompanyChange(newCompanyId: number) {
+    setSelectedEmployeeCompanyId(newCompanyId);
+  }
+
+  const handleRegisterCompany = async (companyData: Omit<Company, 'id' | 'registrationDate'>) => {
+    try {
+      if (!walletConnected) {
+        toast.error('Please connect your wallet first');
+        return;
+      }
+
+      // Step 1: Get registration fee and check balance
+      const fee = await web3.getRegistrationFee();
+      const balance = await web3.getUSDCBalance();
+
+      toast.info(`Registration fee: ${fee} USDC | Your balance: ${balance} USDC`);
+
+      // Check if user has enough USDC
+      if (parseFloat(balance) < parseFloat(fee)) {
+        toast.error(`Insufficient USDC balance. You need ${fee} USDC but only have ${balance} USDC`);
+        return;
+      }
+
+      // Step 2: Approve USDC and WAIT for confirmation
+      toast.info('Approving USDC... Please confirm the transaction in MetaMask');
+      const approvalReceipt = await web3.approveUSDC(fee);
+      toast.success(`USDC approved! Transaction: ${approvalReceipt.transactionHash.substring(0, 10)}...`);
+
+      // Step 3: Register company (now that approval is confirmed)
+      toast.info('Registering company... Please confirm the transaction in MetaMask');
+      const registerReceipt = await web3.registerCompany(companyData.name);
+      toast.success(`Company registered! Transaction: ${registerReceipt.transactionHash.substring(0, 10)}...`);
+
+      // Reload company data and navigate to companies view
+      await loadCompanyData();
+      setCurrentView('companies');
+      toast.success('Redirecting to Companies view...');
+    } catch (error: any) {
+      console.error("Error registering company:", error);
+
+      // Better error messages
+      if (error.message.includes('user rejected')) {
+        toast.error('Transaction rejected by user');
+      } else if (error.message.includes('insufficient funds')) {
+        toast.error('Insufficient funds for gas fees');
+      } else {
+        toast.error(error.message || 'Failed to register company');
+      }
+    }
   };
 
   const handleDeleteCompany = (id: string) => {
@@ -129,23 +197,171 @@ export default function App() {
     toast.success('Employee deleted successfully');
   };
 
-  const handleUpdateEmployee = (id: string, data: Omit<Employee, 'id' | 'registrationDate'>) => {
-    setEmployees(employees.map(e =>
-        e.id === id
-            ? { ...e, name: data.name, walletAddress: data.walletAddress }
-            : e
-    ));
-    toast.success('Employee updated successfully!');
+  const handleUpdateEmployee = async (id: string, data: Omit<Employee, 'id' | 'registrationDate'>) => {
+    try {
+      if (!walletConnected || companyId === 0) {
+        toast.error('Please connect wallet and register company first');
+        return;
+      }
+
+      // Get current employee data
+      const employee = await web3.getEmployee(parseInt(id));
+
+      toast.info('Updating employee... Please confirm the transaction in MetaMask');
+
+      // Update employee on smart contract and wait for confirmation
+      const receipt = await web3.updateEmployee(
+        parseInt(id),
+        data.name,
+        data.walletAddress,
+        employee.destinationChainSelector,
+        employee.receiverContract,
+        employee.salary,
+        employee.nextPayDate,
+        true
+      );
+
+      toast.success(`Employee updated! Transaction: ${receipt.transactionHash.substring(0, 10)}...`);
+      await loadEmployees();
+    } catch (error: any) {
+      console.error("Error updating employee:", error);
+
+      // Better error messages
+      if (error.message.includes('user rejected')) {
+        toast.error('Transaction rejected by user');
+      } else if (error.message.includes('insufficient funds')) {
+        toast.error('Insufficient funds for gas fees');
+      } else {
+        toast.error(error.message || 'Failed to update employee');
+      }
+    }
   };
 
-  const handleSchedulePayment = (paymentData: Omit<Payment, 'id' | 'status'>) => {
-    const newPayment: Payment = {
-      ...paymentData,
-      id: Date.now().toString(),
-      status: 'scheduled',
-    };
-    setPayments([...payments, newPayment]);
-    toast.success('Payment scheduled successfully!');
+  const handleSchedulePayment = async (paymentData: any) => {
+    try {
+      if (!walletConnected || companyId === 0) {
+        toast.error('Please connect wallet and register your company first');
+        return;
+      }
+
+      // Validate that the user is adding to their own company
+      if (paymentData.companyId !== companyId) {
+        toast.error('You can only add employees to your own company');
+        return;
+      }
+
+      // Validate inputs
+      if (!paymentData.employeeName || !paymentData.employeeWallet || !paymentData.receiverWallet || !paymentData.amount) {
+        toast.error('Please fill in all required fields');
+        return;
+      }
+
+      if (paymentData.amount <= 0) {
+        toast.error('Salary amount must be greater than 0');
+        return;
+      }
+
+      // Verify company is active
+      try {
+        const company = await web3.getCompany(paymentData.companyId);
+
+        console.log('Company verification:', {
+          companyId: paymentData.companyId,
+          companyOwner: company.owner,
+          currentAccount: account,
+          companyActive: company.active,
+          ownersMatch: company.owner.toLowerCase() === account.toLowerCase()
+        });
+
+        if (!company.active) {
+          toast.error('Your company is inactive. Please contact support.');
+          return;
+        }
+
+        // Check if user is the company owner
+        if (company.owner.toLowerCase() !== account.toLowerCase()) {
+          toast.error(`You are not the owner of this company. Owner: ${company.owner.substring(0, 10)}... Your address: ${account.substring(0, 10)}...`);
+          return;
+        }
+      } catch (err) {
+        console.error("Error verifying company:", err);
+        toast.error('Failed to verify company ownership');
+        return;
+      }
+
+      // Map blockchain network to chain selector
+      const chainSelectors: Record<string, number> = {
+        'base': 0, // Same chain
+        'ethereum': 1, // Example chain selector
+        'polygon': 2, // Example chain selector
+        'arbitrum': 3, // Example chain selector
+      };
+
+      const chainSelector = chainSelectors[paymentData.blockchainNetwork] || 0;
+
+      // Step 1: Check USDC balance
+      const balance = await web3.getUSDCBalance();
+      const salaryAmount = paymentData.amount.toString();
+
+      toast.info(`Your USDC balance: ${balance} USDC | Employee salary: ${salaryAmount} USDC`);
+
+      if (parseFloat(balance) < parseFloat(salaryAmount)) {
+        toast.error(`Insufficient USDC balance. You need at least ${salaryAmount} USDC but only have ${balance} USDC`);
+        return;
+      }
+
+      // Step 2: Approve USDC for the employee's salary and WAIT for confirmation
+      toast.info('Approving USDC for salary payment... Please confirm the transaction in MetaMask');
+      const approvalReceipt = await web3.approveUSDC(salaryAmount);
+      toast.success(`USDC approved! Transaction: ${approvalReceipt.transactionHash.substring(0, 10)}...`);
+
+      // Verify the allowance was set correctly
+      const allowance = await web3.getUSDCAllowance();
+      console.log('USDC Allowance after approval:', allowance, 'USDC | Salary needed:', salaryAmount, 'USDC');
+
+      // Step 3: Add employee (now that approval is confirmed)
+      toast.info('Adding employee... Please confirm the transaction in MetaMask');
+
+      // Add employee using smart contract and wait for confirmation
+      const receipt = await web3.addEmployee(
+        paymentData.employeeName,
+        paymentData.employeeWallet,
+        chainSelector,
+        paymentData.receiverWallet,
+        salaryAmount
+      );
+
+      toast.success(`Employee added! Transaction: ${receipt.transactionHash.substring(0, 10)}...`);
+
+      // Reload all data to refresh the app state
+      await Promise.all([
+        loadCompanyData(),
+        loadEmployees()
+      ]);
+
+      // Navigate to employees view
+      setCurrentView('companies');
+      toast.success('Employee added successfully! Redirecting to Companies view...');
+    } catch (error: any) {
+      console.error("Error scheduling payment:", error);
+
+      // Better error messages
+      if (error.message.includes('user rejected')) {
+        toast.error('Transaction rejected by user');
+      } else if (error.message.includes('insufficient funds')) {
+        toast.error('Insufficient funds for gas fees');
+      } else if (error.message.includes('company inactive')) {
+        toast.error('Company is inactive');
+      } else if (error.message.includes('not company owner')) {
+        toast.error('You are not the owner of this company');
+      } else if (error.message.includes('zero wallet')) {
+        toast.error('Invalid wallet address');
+      } else if (error.message.includes('salary zero')) {
+        toast.error('Salary must be greater than zero');
+      } else {
+        toast.error(error.message || 'Failed to schedule payment. Check console for details.');
+      }
+    }
   };
 
   const navItems = [
@@ -172,6 +388,22 @@ export default function App() {
                   <h1 className="text-xl">PayFlow</h1>
                   <p className="text-sm text-gray-500">Company Payment Management</p>
                 </div>
+              </div>
+              <div>
+                {!walletConnected ? (
+                  <Button onClick={handleConnectWallet} className="flex items-center gap-2">
+                    <Wallet className="h-4 w-4" />
+                    Connect MetaMask
+                  </Button>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <div className="text-sm">
+                      <p className="font-medium">Connected</p>
+                      <p className="text-gray-500">{account.substring(0, 6)}...{account.substring(38)}</p>
+                    </div>
+                    <div className="h-2 w-2 bg-green-500 rounded-full"></div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -207,12 +439,19 @@ export default function App() {
           {currentView === 'employees' && (
               <EmployeeList
                   employees={employees}
+                  companies={companies}
+                  currentCompanyId={selectedEmployeeCompanyId > 0 ? selectedEmployeeCompanyId : companyId}
                   onDelete={handleDeleteEmployee}
                   onUpdate={handleUpdateEmployee}
+                  onCompanyChange={handleEmployeeCompanyChange}
               />
           )}
           {currentView === 'schedule' && (
-              <PaymentScheduler companies={companies} onSchedule={handleSchedulePayment} />
+              <PaymentScheduler
+                companies={companies}
+                onSchedule={handleSchedulePayment}
+                currentCompanyId={companyId}
+              />
           )}
           {currentView === 'history' && (
               <PaymentHistory companies={companies} payments={payments} />

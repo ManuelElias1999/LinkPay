@@ -1,5 +1,5 @@
 "use client";
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Coins, Users, Wallet } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
@@ -8,7 +8,8 @@ import { Button } from './ui/button';
 
 interface PaymentSchedulerProps {
   companies: Company[];
-  onSchedule: (payment: Omit<Payment, 'id' | 'status'>) => void;
+  onSchedule: (payment: any) => void;
+  currentCompanyId: number;
 }
 
 interface Company {
@@ -28,31 +29,32 @@ interface Payment {
   status: 'pending' | 'completed' | 'scheduled';
 }
 
-export function PaymentScheduler({ companies, onSchedule }: PaymentSchedulerProps) {
+export function PaymentScheduler({ companies, onSchedule, currentCompanyId }: PaymentSchedulerProps) {
   const [formData, setFormData] = useState({
     employeeName: '',
     employeeWallet: '',
+    receiverWallet: '',
     amount: '',
+    blockchainNetwork: 'base',
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.employeeName && formData.employeeWallet && formData.amount) {
-      // Use first company as default or empty string
-      const companyId = companies.length > 0 ? companies[0].id : '';
-      const currentDate = new Date().toISOString().split('T')[0];
-      
+    if (formData.employeeName && formData.employeeWallet && formData.receiverWallet && formData.amount) {
       onSchedule({
-        companyId: companyId,
+        companyId: currentCompanyId,
         employeeName: formData.employeeName,
         employeeWallet: formData.employeeWallet,
+        receiverWallet: formData.receiverWallet,
         amount: parseFloat(formData.amount),
-        scheduledDate: currentDate,
+        blockchainNetwork: formData.blockchainNetwork,
       });
       setFormData({
         employeeName: '',
         employeeWallet: '',
+        receiverWallet: '',
         amount: '',
+        blockchainNetwork: 'base',
       });
     }
   };
@@ -76,6 +78,22 @@ export function PaymentScheduler({ companies, onSchedule }: PaymentSchedulerProp
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
+            {currentCompanyId === 0 && (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-sm text-red-600">
+                  You must register a company first before adding employees. Only company owners can add employees.
+                </p>
+              </div>
+            )}
+
+            {currentCompanyId > 0 && (
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
+                <p className="text-sm text-blue-600">
+                  Adding employee to your company (ID: {currentCompanyId})
+                </p>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="employeeName">Employee Name</Label>
               <div className="relative">
@@ -107,6 +125,43 @@ export function PaymentScheduler({ companies, onSchedule }: PaymentSchedulerProp
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="receiverWallet">Receiver Contract Address (same address for same chain)</Label>
+              <div className="relative">
+                <Wallet className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Input
+                  id="receiverWallet"
+                  placeholder="Enter receiver contract address"
+                  value={formData.receiverWallet}
+                  onChange={(e) => setFormData({ ...formData, receiverWallet: e.target.value })}
+                  className="pl-10"
+                  required
+                />
+              </div>
+              <p className="text-xs text-gray-500">
+                For same-chain payments, use the same wallet address as employee wallet
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="blockchainNetwork">Blockchain Network</Label>
+              <select
+                id="blockchainNetwork"
+                value={formData.blockchainNetwork}
+                onChange={(e) => setFormData({ ...formData, blockchainNetwork: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                required
+              >
+                <option value="base">Base (Same Chain - Chain Selector: 0)</option>
+                <option value="ethereum">Ethereum (Cross-chain)</option>
+                <option value="polygon">Polygon (Cross-chain)</option>
+                <option value="arbitrum">Arbitrum (Cross-chain)</option>
+              </select>
+              <p className="text-xs text-gray-500">
+                Select Base for same-chain payments or other networks for cross-chain via CCIP
+              </p>
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="amount">Amount (USDC)</Label>
               <div className="relative">
                 <Coins className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
@@ -123,8 +178,8 @@ export function PaymentScheduler({ companies, onSchedule }: PaymentSchedulerProp
               </div>
             </div>
 
-            <Button type="submit" className="w-full">
-              Schedule Payment
+            <Button type="submit" className="w-full" disabled={currentCompanyId === 0}>
+              {currentCompanyId === 0 ? 'Register Company First' : 'Schedule Payment'}
             </Button>
           </form>
         </CardContent>
