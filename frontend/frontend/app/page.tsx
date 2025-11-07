@@ -385,7 +385,7 @@ export default function App() {
                   <Building2 className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-xl">PayFlow</h1>
+                  <h1 className="text-xl">LinkPay</h1>
                   <p className="text-sm text-gray-500">Company Payment Management</p>
                 </div>
               </div>
