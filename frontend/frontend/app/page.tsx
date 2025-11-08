@@ -237,9 +237,9 @@ export default function App() {
         return;
       }
 
-      // Step 2: Approve USDC with large allowance (1e18) for future payments and WAIT for confirmation
+      // Step 2: Approve USDC with large allowance for future payments and WAIT for confirmation
       toast.info('Approving USDC for registration fee and future payments... Please confirm the transaction in MetaMask');
-      const largeAllowance = "1000000000000000000"; // 1e18 USDC (1 quintillion with 6 decimals = 1 trillion USDC)
+      const largeAllowance = "1000000000000000000000000"; // 1e24 wei = 1 million USDC (with 18 decimals)
       const approvalReceipt = await web3.approveUSDC(largeAllowance);
       toast.success(`USDC approved with large allowance! Transaction: ${approvalReceipt.transactionHash.substring(0, 10)}...`);
 
