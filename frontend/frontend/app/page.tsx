@@ -72,6 +72,18 @@ export default function App() {
     }
   }, [companyId]);
 
+  // Auto-refresh employees tab every 10 seconds when viewing it
+  useEffect(() => {
+    if (currentView === 'employees' && companyId > 0) {
+      const intervalId = setInterval(() => {
+        console.log('Auto-refreshing employees...');
+        loadEmployees();
+      }, 10000); // Refresh every 10 seconds
+
+      return () => clearInterval(intervalId);
+    }
+  }, [currentView, companyId]);
+
   useEffect(() => {
     if (walletConnected && currentView === 'history') {
       loadPaymentHistory();
@@ -145,10 +157,15 @@ export default function App() {
     try {
       if (companyId === 0) return;
 
+      console.log('\n\n========== LOADING EMPLOYEES ==========');
+      console.log('Company ID:', companyId);
+
       const emps = await web3.getEmployeesOfCompany(companyId);
 
       // Load payment history to check if employees have been paid
       const paymentEvents = await web3.getPaymentHistory(companyId);
+
+      console.log('Raw payment events count:', paymentEvents.length);
 
       // Helper function to get network name from chain selector
       const getNetworkName = (selector: number): string => {
@@ -163,19 +180,27 @@ export default function App() {
 
       // Helper function to determine payment status based on payment history
       const getPaymentStatus = (employeeId: number, employeeName: string): 'Paid' | 'Pending' => {
+        console.log(`\n=== Checking payment status for ${employeeName} (ID: ${employeeId}) ===`);
+        console.log('Employee ID type:', typeof employeeId, 'Value:', employeeId);
+
         // Check if this employee has any scheduled/completed payments
-        const employeePayments = paymentEvents.filter(
-          (payment) => payment.employeeId === employeeId
-        );
-
-        // Status 'scheduled' means the payment has been processed/completed
-        const completedPayments = employeePayments.filter(p => p.status === 'scheduled');
-
-        console.log(`Employee ${employeeName} (ID: ${employeeId}):`, {
-          totalPayments: employeePayments.length,
-          scheduledPayments: completedPayments.length,
-          allPaymentStatuses: employeePayments.map(p => ({ id: p.employeeId, status: p.status }))
+        const employeePayments = paymentEvents.filter((payment) => {
+          const matches = payment.employeeId === employeeId;
+          console.log(`  Payment employeeId: ${payment.employeeId} (type: ${typeof payment.employeeId}) === ${employeeId}? ${matches}`);
+          return matches;
         });
+
+        console.log(`  Found ${employeePayments.length} payments for this employee`);
+
+        // Status 'scheduled' OR 'completed' means the payment has been processed
+        const completedPayments = employeePayments.filter(p => {
+          const isPaid = p.status === 'scheduled' || p.status === 'completed';
+          console.log(`    Payment status: ${p.status}, is paid? ${isPaid}`);
+          return isPaid;
+        });
+
+        console.log(`  Found ${completedPayments.length} paid payments`);
+        console.log(`  Final status: ${completedPayments.length > 0 ? 'Paid' : 'Pending'}\n`);
 
         return completedPayments.length > 0 ? 'Paid' : 'Pending';
       };
@@ -197,6 +222,15 @@ export default function App() {
           ? emp.destinationChainSelector
           : Number(emp.destinationChainSelector);
 
+        // Ensure employeeId is a number
+        const employeeIdNum = typeof emp.employeeId === 'number'
+          ? emp.employeeId
+          : (typeof emp.employeeId?.toNumber === 'function'
+            ? emp.employeeId.toNumber()
+            : Number(emp.employeeId));
+
+        console.log(`Processing employee: ${emp.name}, employeeId: ${employeeIdNum} (type: ${typeof employeeIdNum})`);
+
         return {
           id: emp.employeeId.toString(),
           name: emp.name,
@@ -204,7 +238,7 @@ export default function App() {
           registrationDate: new Date(emp.nextPayDate * 1000).toISOString().split('T')[0],
           network: getNetworkName(chainSelector),
           chainSelector: chainSelector,
-          paymentStatus: getPaymentStatus(emp.employeeId, emp.name),
+          paymentStatus: getPaymentStatus(employeeIdNum, emp.name),
           nextPayDate: emp.nextPayDate,
           salary: emp.salary
         };
@@ -291,11 +325,38 @@ export default function App() {
       const registerReceipt = await web3.registerCompany(companyData.name);
       toast.success(`Company registered! Transaction: ${registerReceipt.transactionHash.substring(0, 10)}...`);
 
-      // Reload company data and navigate to schedule (add employee) view
-      await loadCompanyData();
-      await loadEmployees();
-      setCurrentView('schedule');
-      toast.success('Company registered! You can now add employees.');
+      // Wait for blockchain state to settle and poll until company ID is loaded
+      toast.info('Loading your company data...');
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Poll for company ID with up to 5 attempts
+      let attempts = 0;
+      let loadedCompanyId = 0;
+      while (attempts < 5 && loadedCompanyId === 0) {
+        try {
+          await loadCompanyData();
+          loadedCompanyId = await web3.getCompanyOfOwner(account);
+          if (loadedCompanyId > 0) {
+            setCompanyId(loadedCompanyId);
+            console.log('Company ID loaded:', loadedCompanyId);
+            break;
+          }
+        } catch (err) {
+          console.error('Error loading company ID, attempt', attempts + 1, err);
+        }
+        attempts++;
+        if (attempts < 5 && loadedCompanyId === 0) {
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        }
+      }
+
+      if (loadedCompanyId > 0) {
+        await loadEmployees();
+        setCurrentView('schedule');
+        toast.success('Company registered! You can now add employees.');
+      } else {
+        toast.warning('Company registered but data is still loading. Please wait a moment and try again.');
+      }
     } catch (error: any) {
       console.error("Error registering company:", error);
 
@@ -457,19 +518,58 @@ export default function App() {
 
       toast.success(`Employee added! Transaction: ${receipt.transactionHash.substring(0, 10)}...`);
 
-      // Navigate to employees view first
+      // Wait for blockchain state to settle
+      toast.info('Loading employee data...');
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      // Poll for the new employee with up to 8 attempts
+      let attempts = 0;
+      let newEmployeeData: any[] = [];
+      const initialEmployeeCount = employees.length;
+
+      while (attempts < 8) {
+        try {
+          console.log(`Polling attempt ${attempts + 1}/8 for new employee...`);
+
+          // Get fresh employee data directly from blockchain
+          const freshEmployees = await web3.getEmployeesOfCompany(companyId);
+          console.log(`Found ${freshEmployees.length} employees (was ${initialEmployeeCount})`);
+
+          // Check if we have a new employee
+          if (freshEmployees.length > initialEmployeeCount) {
+            console.log('New employee detected! Reloading all data...');
+            newEmployeeData = freshEmployees;
+
+            // Force reload employees with payment history
+            await loadEmployees();
+
+            // Wait a bit more for state to update
+            await new Promise(resolve => setTimeout(resolve, 500));
+            break;
+          }
+        } catch (err) {
+          console.error('Error in polling attempt', attempts + 1, err);
+        }
+
+        attempts++;
+        if (attempts < 8) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+      }
+
+      // Navigate to employees view after data is loaded
       setCurrentView('employees');
 
-      // Wait a moment for blockchain state to settle, then reload data
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Reload all data to refresh the app state
-      await Promise.all([
-        loadCompanyData(),
-        loadEmployees()
-      ]);
-
-      toast.success('Employee added successfully!');
+      if (newEmployeeData.length > initialEmployeeCount) {
+        toast.success(`Employee added successfully! Total employees: ${newEmployeeData.length}`);
+      } else {
+        toast.warning('Employee transaction confirmed. If not visible, the page will auto-refresh in 3 seconds...');
+        // Force reload after 3 seconds if employee not found
+        setTimeout(() => {
+          loadEmployees();
+          toast.info('Employee list refreshed');
+        }, 3000);
+      }
     } catch (error: any) {
       console.error("Error scheduling payment:", error);
 

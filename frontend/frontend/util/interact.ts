@@ -347,6 +347,15 @@ export async function getPaymentHistory(companyId?: number): Promise<PaymentEven
       const block = await provider.getBlock(event.blockNumber);
       const args = event.args as any;
 
+      // Log the event args to debug
+      console.log('PaymentExecuted event args:', {
+        companyId: args.companyId?.toNumber(),
+        employeeId: args.employeeId?.toNumber(),
+        wallet: args.wallet,
+        amount: args.amount?.toString(),
+        allArgs: Object.keys(args)
+      });
+
       // Get employee details
       let employeeName = 'Unknown';
       if (payrollContract) {
@@ -361,7 +370,7 @@ export async function getPaymentHistory(companyId?: number): Promise<PaymentEven
       payments.push({
         id: `${event.transactionHash}-${event.logIndex}`,
         companyId: args.companyId.toNumber(),
-        employeeId: args.employeeId.toNumber(),
+        employeeId: args.employeeId ? args.employeeId.toNumber() : 0,
         employeeName: employeeName,
         employeeWallet: args.wallet,
         amount: ethers.utils.formatUnits(args.amount, 18),
@@ -405,10 +414,19 @@ export async function getPaymentHistory(companyId?: number): Promise<PaymentEven
 
       const chainSelector = args.destChain ? Number(args.destChain) : 0;
 
+      // Log the event args to debug
+      console.log('PaymentScheduled event args:', {
+        companyId: args.companyId?.toNumber(),
+        employeeId: args.employeeId?.toNumber(),
+        wallet: args.wallet,
+        amount: args.amount?.toString(),
+        allArgs: Object.keys(args)
+      });
+
       payments.push({
         id: `${event.transactionHash}-${event.logIndex}`,
         companyId: args.companyId.toNumber(),
-        employeeId: args.employeeId.toNumber(),
+        employeeId: args.employeeId ? args.employeeId.toNumber() : 0,
         employeeName: employeeName,
         employeeWallet: args.wallet,
         amount: ethers.utils.formatUnits(args.amount, 18),
@@ -422,6 +440,13 @@ export async function getPaymentHistory(companyId?: number): Promise<PaymentEven
 
     // Sort by timestamp (most recent first)
     payments.sort((a, b) => b.timestamp - a.timestamp);
+
+    console.log('Final payment history:', payments.map(p => ({
+      employeeId: p.employeeId,
+      employeeName: p.employeeName,
+      status: p.status,
+      amount: p.amount
+    })));
 
     return payments;
   } catch (error) {
