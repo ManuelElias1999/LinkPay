@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from 'react';
-import { Building2, LayoutDashboard, Users, Coins, History, Wallet } from 'lucide-react';
+import { Building2, LayoutDashboard, Users, Coins, History, Wallet, LogOut } from 'lucide-react';
 import { Dashboard } from '../components/Dashboard';
 import { CompanyRegistration } from '../components/CompanyRegistration';
 import { EmployeeList } from '../components/EmployeeList';
@@ -29,6 +29,7 @@ interface Employee {
 interface Payment {
   id: string;
   companyId: string;
+  employeeId?: number;
   employeeName: string;
   employeeWallet: string;
   amount: number;
@@ -46,7 +47,6 @@ export default function App() {
   const [walletConnected, setWalletConnected] = useState(false);
   const [account, setAccount] = useState('');
   const [companyId, setCompanyId] = useState<number>(0);
-  const [selectedEmployeeCompanyId, setSelectedEmployeeCompanyId] = useState<number>(0);
   const [companies, setCompanies] = useState<Company[]>([]);
 
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -65,19 +65,12 @@ export default function App() {
     }
   }, [walletConnected, account]);
 
-  // Load employees when companyId or selectedEmployeeCompanyId changes
+  // Load employees when companyId changes
   useEffect(() => {
     if (companyId > 0) {
       loadEmployees();
-      setSelectedEmployeeCompanyId(companyId); // Set initial selected company
     }
   }, [companyId]);
-
-  useEffect(() => {
-    if (selectedEmployeeCompanyId > 0) {
-      loadEmployees();
-    }
-  }, [selectedEmployeeCompanyId]);
 
   useEffect(() => {
     if (walletConnected && currentView === 'history') {
@@ -112,6 +105,23 @@ export default function App() {
     }
   }
 
+  function handleDisconnectWallet() {
+    // Set wallet as disconnected FIRST to prevent race conditions
+    setWalletConnected(false);
+    setAccount('');
+    setCompanyId(0);
+    setCompanies([]);
+    setEmployees([]);
+    setPayments([]);
+    setUsdcBalance('0');
+    setCurrentView('dashboard');
+
+    // Then disconnect the web3 provider
+    web3.disconnectWallet();
+
+    toast.success('Wallet disconnected');
+  }
+
   async function loadCompanyData() {
     try {
       // Get the current user's company ID
@@ -133,10 +143,12 @@ export default function App() {
 
   async function loadEmployees() {
     try {
-      const companyIdToLoad = selectedEmployeeCompanyId > 0 ? selectedEmployeeCompanyId : companyId;
-      if (companyIdToLoad === 0) return;
+      if (companyId === 0) return;
 
-      const emps = await web3.getEmployeesOfCompany(companyIdToLoad);
+      const emps = await web3.getEmployeesOfCompany(companyId);
+
+      // Load payment history to check if employees have been paid
+      const paymentEvents = await web3.getPaymentHistory(companyId);
 
       // Helper function to get network name from chain selector
       const getNetworkName = (selector: number): string => {
@@ -149,11 +161,35 @@ export default function App() {
         return networks[selector] || 'Unknown';
       };
 
-      // Helper function to determine payment status
-      const getPaymentStatus = (nextPayDate: number): 'Paid' | 'Pending' => {
-        const now = Math.floor(Date.now() / 1000); // Current time in seconds
-        return nextPayDate > now ? 'Paid' : 'Pending';
+      // Helper function to determine payment status based on payment history
+      const getPaymentStatus = (employeeId: number, employeeName: string): 'Paid' | 'Pending' => {
+        // Check if this employee has any scheduled/completed payments
+        const employeePayments = paymentEvents.filter(
+          (payment) => payment.employeeId === employeeId
+        );
+
+        // Status 'scheduled' means the payment has been processed/completed
+        const completedPayments = employeePayments.filter(p => p.status === 'scheduled');
+
+        console.log(`Employee ${employeeName} (ID: ${employeeId}):`, {
+          totalPayments: employeePayments.length,
+          scheduledPayments: completedPayments.length,
+          allPaymentStatuses: employeePayments.map(p => ({ id: p.employeeId, status: p.status }))
+        });
+
+        return completedPayments.length > 0 ? 'Paid' : 'Pending';
       };
+
+      console.log('All payment events:', paymentEvents.map(p => ({
+        employeeId: p.employeeId,
+        employeeName: p.employeeName,
+        status: p.status
+      })));
+
+      console.log('All employees:', emps.map(e => ({
+        employeeId: e.employeeId,
+        name: e.name
+      })));
 
       setEmployees(emps.map((emp: any) => {
         // Ensure numeric values are properly converted
@@ -168,7 +204,7 @@ export default function App() {
           registrationDate: new Date(emp.nextPayDate * 1000).toISOString().split('T')[0],
           network: getNetworkName(chainSelector),
           chainSelector: chainSelector,
-          paymentStatus: getPaymentStatus(emp.nextPayDate),
+          paymentStatus: getPaymentStatus(emp.employeeId, emp.name),
           nextPayDate: emp.nextPayDate,
           salary: emp.salary
         };
@@ -179,6 +215,8 @@ export default function App() {
   }
 
   async function loadPaymentHistory() {
+    if (!walletConnected) return; // Don't load if wallet is disconnected
+
     try {
       // Load payment history for the current user's company
       // Pass companyId if you want to filter, or undefined for all payments
@@ -187,6 +225,7 @@ export default function App() {
       setPayments(paymentEvents.map((event) => ({
         id: event.id,
         companyId: event.companyId.toString(),
+        employeeId: event.employeeId,
         employeeName: event.employeeName,
         employeeWallet: event.employeeWallet,
         amount: parseFloat(event.amount),
@@ -196,12 +235,17 @@ export default function App() {
         network: event.network,
         timestamp: event.timestamp
       })));
-    } catch (error) {
-      console.error("Error loading payment history:", error);
+    } catch (error: any) {
+      // Silently ignore "Contract not initialized" errors when disconnecting
+      if (!error?.message?.includes('Contract not initialized')) {
+        console.error("Error loading payment history:", error);
+      }
     }
   }
 
   async function loadDashboardData() {
+    if (!walletConnected) return; // Don't load if wallet is disconnected
+
     try {
       // Load USDC balance
       const balance = await web3.getUSDCBalance();
@@ -209,13 +253,12 @@ export default function App() {
 
       // Load payment history for dashboard stats
       await loadPaymentHistory();
-    } catch (error) {
-      console.error("Error loading dashboard data:", error);
+    } catch (error: any) {
+      // Silently ignore "Contract not initialized" errors when disconnecting
+      if (!error?.message?.includes('Contract not initialized')) {
+        console.error("Error loading dashboard data:", error);
+      }
     }
-  }
-
-  function handleEmployeeCompanyChange(newCompanyId: number) {
-    setSelectedEmployeeCompanyId(newCompanyId);
   }
 
   const handleRegisterCompany = async (companyData: Omit<Company, 'id' | 'registrationDate'>) => {
@@ -237,9 +280,9 @@ export default function App() {
         return;
       }
 
-      // Step 2: Approve USDC with large allowance (1e18) for future payments and WAIT for confirmation
+      // Step 2: Approve USDC with large allowance for future payments and WAIT for confirmation
       toast.info('Approving USDC for registration fee and future payments... Please confirm the transaction in MetaMask');
-      const largeAllowance = "1000000000000000000"; // 1e18 USDC (1 quintillion with 6 decimals = 1 trillion USDC)
+      const largeAllowance = "1000000000000000000000000"; // 1e24 wei = 1 million USDC (with 18 decimals)
       const approvalReceipt = await web3.approveUSDC(largeAllowance);
       toast.success(`USDC approved with large allowance! Transaction: ${approvalReceipt.transactionHash.substring(0, 10)}...`);
 
@@ -414,15 +457,19 @@ export default function App() {
 
       toast.success(`Employee added! Transaction: ${receipt.transactionHash.substring(0, 10)}...`);
 
+      // Navigate to employees view first
+      setCurrentView('employees');
+
+      // Wait a moment for blockchain state to settle, then reload data
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
       // Reload all data to refresh the app state
       await Promise.all([
         loadCompanyData(),
         loadEmployees()
       ]);
 
-      // Navigate to employees view
-      setCurrentView('employees');
-      toast.success('Employee added successfully! View your employee in the Employees tab.');
+      toast.success('Employee added successfully!');
     } catch (error: any) {
       console.error("Error scheduling payment:", error);
 
@@ -477,12 +524,21 @@ export default function App() {
                     Connect MetaMask
                   </Button>
                 ) : (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-3">
                     <div className="text-sm">
                       <p className="font-medium">Connected</p>
                       <p className="text-gray-500">{account.substring(0, 6)}...{account.substring(38)}</p>
                     </div>
                     <div className="h-2 w-2 bg-green-500 rounded-full"></div>
+                    <Button
+                      onClick={handleDisconnectWallet}
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-2"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      Logout
+                    </Button>
                   </div>
 
                 )}
@@ -523,16 +579,19 @@ export default function App() {
               />
           )}
           {currentView === 'register' && (
-              <CompanyRegistration onRegister={handleRegisterCompany} />
+              <CompanyRegistration
+                onRegister={handleRegisterCompany}
+                walletConnected={walletConnected}
+                walletAddress={account}
+              />
           )}
           {currentView === 'employees' && (
               <EmployeeList
                   employees={employees}
                   companies={companies}
-                  currentCompanyId={selectedEmployeeCompanyId > 0 ? selectedEmployeeCompanyId : companyId}
+                  currentCompanyId={companyId}
                   onDelete={handleDeleteEmployee}
                   onUpdate={handleUpdateEmployee}
-                  onCompanyChange={handleEmployeeCompanyChange}
               />
           )}
           {currentView === 'schedule' && (
@@ -543,7 +602,11 @@ export default function App() {
               />
           )}
           {currentView === 'history' && (
-              <PaymentHistory companies={companies} payments={payments} />
+              <PaymentHistory
+                companies={companies}
+                payments={payments}
+                currentCompanyId={companyId}
+              />
           )}
         </main>
       </div>

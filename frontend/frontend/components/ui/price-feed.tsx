@@ -32,13 +32,12 @@ const aggregatorV3InterfaceABI = [
     },
 ];
 
-const CHAINLINK_ETH_USD_PRICE_FEED = "0x694AA1769357215DE4FAC081bf1f309aDC325306";
+// Chainlink Price Feed Addresses (Arbitrum Mainnet)
+const CHAINLINK_USDC_USD_PRICE_FEED = "0x50834F3163758fcC1Df9973b6e91f0F0F0434aD3";
+const CHAINLINK_BRL_USD_PRICE_FEED = "0x04b7384473A2aDF1903E3a98aCAc5D62ba8C2702";
 
 
-const RPC_ENDPOINTS = [
-    "https://ethereum-sepolia-rpc.publicnode.com",
-    "https://sepolia.gateway.tenderly.co",
-];
+const RPC_ENDPOINT = "https://arb1.arbitrum.io/rpc";
 
 export const PriceFeed = () => {
     const [price, setPrice] = useState<string | null>(null);
@@ -47,21 +46,15 @@ export const PriceFeed = () => {
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
     const providerRef = useRef<ethers.providers.JsonRpcProvider | null>(null);
-    const contractRef = useRef<ethers.Contract | null>(null);
+    const usdcContractRef = useRef<ethers.Contract | null>(null);
+    const brlContractRef = useRef<ethers.Contract | null>(null);
 
 
     const initializeProvider = async (): Promise<ethers.providers.JsonRpcProvider> => {
-        for (const rpcUrl of RPC_ENDPOINTS) {
-            try {
-                const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
-                await provider.getBlockNumber();
-                return provider;
-            } catch (err) {
-                console.warn(`Failed to connect to ${rpcUrl}, trying next...`);
-                continue;
-            }
-        }
-        throw new Error("Failed to connect to any RPC endpoint");
+         const provider = new ethers.providers.JsonRpcProvider(RPC_ENDPOINT);
+         await provider.getBlockNumber();
+         return provider;
+
     };
 
     useEffect(() => {
@@ -69,62 +62,113 @@ export const PriceFeed = () => {
 
         const setupAndFetch = async () => {
             try {
-                                const provider = await initializeProvider();
+                const provider = await initializeProvider();
                 if (!isMounted) return;
 
                 providerRef.current = provider;
 
-
-                const priceFeedContract = new ethers.Contract(
-                    CHAINLINK_ETH_USD_PRICE_FEED,
+                // Initialize USDC/USD price feed contract
+                const usdcPriceFeedContract = new ethers.Contract(
+                    CHAINLINK_USDC_USD_PRICE_FEED,
                     aggregatorV3InterfaceABI,
                     provider
                 );
-                contractRef.current = priceFeedContract;
+                usdcContractRef.current = usdcPriceFeedContract;
+
+                // Initialize BRL/USD price feed contract
+                const brlPriceFeedContract = new ethers.Contract(
+                    CHAINLINK_BRL_USD_PRICE_FEED,
+                    aggregatorV3InterfaceABI,
+                    provider
+                );
+                brlContractRef.current = brlPriceFeedContract;
+
+                // Verify both price feed contracts
+                try {
+                    const usdcDescription = await usdcPriceFeedContract.description();
+                    console.log(`USDC/USD Feed verified: ${usdcDescription}`);
+                } catch (err: any) {
+                    console.error(`USDC/USD Feed address invalid: ${CHAINLINK_USDC_USD_PRICE_FEED}`, err);
+                    throw new Error(`Invalid USDC/USD feed address: ${err.message}`);
+                }
+
+                try {
+                    const brlDescription = await brlPriceFeedContract.description();
+                    console.log(`BRL/USD Feed verified: ${brlDescription}`);
+                } catch (err: any) {
+                    console.error(`BRL/USD Feed address invalid: ${CHAINLINK_BRL_USD_PRICE_FEED}`, err);
+                    throw new Error(`Invalid BRL/USD feed address: ${err.message}`);
+                }
 
                 const fetchPrice = async () => {
-                    if (!isMounted || !contractRef.current) return;
+                    if (!isMounted || !usdcContractRef.current || !brlContractRef.current) return;
 
                     try {
                         setError(null);
-   
-                        const [roundData, decimals] = await Promise.all([
-                            contractRef.current.latestRoundData(),
-                            contractRef.current.decimals(),
-                        ]);
 
-
-                        if (!roundData || roundData.answer === null || roundData.answer === undefined) {
-                            throw new Error("Invalid price data received");
+                        // Fetch both USDC/USD and BRL/USD prices from Chainlink
+                        let usdcRoundData, usdcDecimals, brlRoundData, brlDecimals;
+                        
+                        try {
+                            [usdcRoundData, usdcDecimals] = await Promise.all([
+                                usdcContractRef.current.latestRoundData(),
+                                usdcContractRef.current.decimals(),
+                            ]);
+                        } catch (err: any) {
+                            throw new Error(`Failed to fetch USDC price: ${err.message}`);
                         }
 
- 
+                        try {
+                            [brlRoundData, brlDecimals] = await Promise.all([
+                                brlContractRef.current.latestRoundData(),
+                                brlContractRef.current.decimals(),
+                            ]);
+                        } catch (err: any) {
+                            throw new Error(`Failed to fetch BRL price: ${err.message}`);
+                        }
+
+                        if (!usdcRoundData || usdcRoundData.answer === null || usdcRoundData.answer === undefined) {
+                            throw new Error("Invalid USDC price data received");
+                        }
+
+                        if (!brlRoundData || brlRoundData.answer === null || brlRoundData.answer === undefined) {
+                            throw new Error("Invalid BRL price data received");
+                        }
+
                         const currentTime = Math.floor(Date.now() / 1000);
-                        const updatedAt = Number(roundData.updatedAt);
+                        const usdcUpdatedAt = Number(usdcRoundData.updatedAt);
+                        const brlUpdatedAt = Number(brlRoundData.updatedAt);
                         const stalenessThreshold = 3600; // 1 hour in seconds
 
-                        if (currentTime - updatedAt > stalenessThreshold) {
+                        if (currentTime - usdcUpdatedAt > stalenessThreshold || currentTime - brlUpdatedAt > stalenessThreshold) {
                             console.warn("Price data is stale");
                         }
 
-           
-                        const priceValue = ethers.utils.formatUnits(roundData.answer, decimals);
-                        const priceNumber = parseFloat(priceValue);
+                        // Calculate USDC/BRL = (USDC/USD) / (BRL/USD)
+                        const usdcPriceValue = ethers.utils.formatUnits(usdcRoundData.answer, usdcDecimals);
+                        const brlPriceValue = ethers.utils.formatUnits(brlRoundData.answer, brlDecimals);
+                        
+                        const usdcPriceNumber = parseFloat(usdcPriceValue);
+                        const brlPriceNumber = parseFloat(brlPriceValue);
 
-                        if (isNaN(priceNumber) || priceNumber <= 0) {
+                        if (isNaN(usdcPriceNumber) || usdcPriceNumber <= 0 || isNaN(brlPriceNumber) || brlPriceNumber <= 0) {
                             throw new Error("Invalid price value");
                         }
 
+                        // Calculate USDC/BRL
+                        const usdcBrlPrice = usdcPriceNumber / brlPriceNumber;
+
                         if (isMounted) {
-                            setPrice(priceNumber.toFixed(2));
+                            setPrice(usdcBrlPrice.toFixed(2));
                             setLastUpdated(new Date());
                             setLoading(false);
-                            console.log(`ETH/USD Price: $${priceNumber.toFixed(2)} (Updated: ${new Date(updatedAt * 1000).toLocaleString()})`);
+                            console.log(`USDC/BRL Price: R$${usdcBrlPrice.toFixed(2)} (USDC/USD: $${usdcPriceNumber.toFixed(2)}, BRL/USD: $${brlPriceNumber.toFixed(4)})`);
                         }
                     } catch (err: any) {
-                        console.error("Error fetching price:", err);
+                        console.error("Error fetching USDC/BRL price:", err);
                         if (isMounted) {
-                            setError(err.message || "Failed to fetch price");
+                            const errorMessage = err.message || "Failed to fetch USDC/BRL price";
+                            setError(errorMessage);
                             setLoading(false);
                         }
                     }
@@ -158,7 +202,7 @@ export const PriceFeed = () => {
 
     return (
         <div className="flex flex-col items-end gap-1">
-            <div className="text-m text-gray-500">ETH/USD</div>
+            <div className="text-m text-gray-500">USDC/BRL</div>
             {loading && !error && (
                 <div className="text-m text-gray-600 animate-pulse">Loading...</div>
             )}
@@ -170,7 +214,7 @@ export const PriceFeed = () => {
             {price && !error && (
                 <div className="flex flex-col items-end">
                     <div className="text-m font-semibold text-green-600">
-                        ${price}
+                        R${price}
                     </div>
                     {lastUpdated && (
                         <div className="text-m text-gray-400">

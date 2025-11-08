@@ -1,14 +1,15 @@
 "use client";
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Building2, Wallet } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Button } from './ui/button';
-import { toast } from 'sonner';
 
 interface CompanyRegistrationProps {
   onRegister: (company: Omit<Company, 'id' | 'registrationDate'>) => void;
+  walletConnected?: boolean;
+  walletAddress?: string;
 }
 
 interface Company {
@@ -18,43 +19,18 @@ interface Company {
   registrationDate: string;
 }
 
-export function CompanyRegistration({ onRegister }: CompanyRegistrationProps) {
+export function CompanyRegistration({ onRegister, walletConnected, walletAddress }: CompanyRegistrationProps) {
   const [formData, setFormData] = useState({
     name: '',
     walletAddress: '',
   });
-  const [isConnecting, setIsConnecting] = useState(false);
 
-  const connectMetaMask = async () => {
-    setIsConnecting(true);
-    try {
-      // Check if MetaMask is installed
-      if (typeof window.ethereum === 'undefined') {
-        toast.error('MetaMask is not installed. Please install MetaMask to continue.');
-        setIsConnecting(false);
-        return;
-      }
-
-      // Request account access
-      const accounts = await window.ethereum.request({ 
-        method: 'eth_requestAccounts' 
-      });
-      
-      if (accounts && accounts.length > 0) {
-        setFormData({ ...formData, walletAddress: accounts[0] });
-        toast.success('MetaMask connected successfully!');
-      }
-    } catch (error: any) {
-      if (error.code === 4001) {
-        toast.error('Connection rejected. Please approve the connection in MetaMask.');
-      } else {
-        toast.error('Failed to connect to MetaMask. Please try again.');
-      }
-      console.error('Error connecting to MetaMask:', error);
-    } finally {
-      setIsConnecting(false);
+  // Sync wallet address from parent when available
+  useEffect(() => {
+    if (walletConnected && walletAddress) {
+      setFormData(prev => ({ ...prev, walletAddress }));
     }
-  };
+  }, [walletConnected, walletAddress]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,32 +70,29 @@ export function CompanyRegistration({ onRegister }: CompanyRegistrationProps) {
               />
             </div>
 
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Wallet className="h-5 w-5" />
-                <Label>MetaMask Wallet</Label>
-              </div>
-
-              <Button
-                type="button"
-                variant="outline"
-                onClick={connectMetaMask}
-                disabled={isConnecting}
-                className="w-full"
-              >
-                {isConnecting ? 'Connecting...' : formData.walletAddress ? `Connected: ${formData.walletAddress.slice(0, 6)}...${formData.walletAddress.slice(-4)}` : 'Connect MetaMask'}
-              </Button>
-
-              {formData.walletAddress && (
+            {walletConnected && formData.walletAddress && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Wallet className="h-5 w-5" />
+                  <Label>Connected Wallet</Label>
+                </div>
                 <div className="bg-green-50 p-3 rounded-lg border border-green-200">
                   <p className="text-xs text-green-800 break-all">
                     <span className="font-medium">Wallet: </span>{formData.walletAddress}
                   </p>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
-            <Button type="submit" className="w-full">
+            {!walletConnected && (
+              <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                <p className="text-sm text-yellow-800">
+                  Please connect your wallet using the "Connect MetaMask" button in the header to register your company.
+                </p>
+              </div>
+            )}
+
+            <Button type="submit" className="w-full" disabled={!walletConnected || !formData.walletAddress}>
               Register Company
             </Button>
           </form>

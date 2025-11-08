@@ -4,12 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="d4dae7ec-1c22-43bb-b870-bce345b7d4a2" name="Changes" comment="feat: enhance dashboard with employee count and USDC balance display">
+    <list default="true" id="d4dae7ec-1c22-43bb-b870-bce345b7d4a2" name="Changes" comment="feat: enhance company registration and employee list with wallet connection handling and improved payment status display">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/frontend/components/ui/calendar.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/frontend/components/ui/calendar.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/frontend/components/ui/chart.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/frontend/components/ui/chart.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/frontend/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/frontend/package-lock.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/frontend/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/frontend/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/frontend/components/Dashboard.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/frontend/components/Dashboard.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/frontend/components/EmployeeList.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/frontend/components/EmployeeList.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/frontend/components/PaymentHistory.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/frontend/components/PaymentHistory.tsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -19,7 +18,7 @@
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
-        <entry key="$PROJECT_DIR$" value="feature/frontend" />
+        <entry key="$PROJECT_DIR$" value="main" />
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -32,6 +31,10 @@
             <RecentBranchesForRepo>
               <option name="branches">
                 <list>
+                  <RecentBranch>
+                    <option name="branchName" value="frontend-fixed" />
+                    <option name="lastUsedInstant" value="1762568166" />
+                  </RecentBranch>
                   <RecentBranch>
                     <option name="branchName" value="main" />
                     <option name="lastUsedInstant" value="1762545606" />
@@ -49,18 +52,21 @@
       </RecentBranches>
     </option>
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "git-widget-placeholder": "main",
-    "ts.external.directory.path": "/Users/fabriciomaldonado/fabricio/personal/LinkPay/frontend/frontend/node_modules/typescript/lib"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;git-widget-placeholder&quot;: &quot;frontend-fixed&quot;,
+    &quot;ts.external.directory.path&quot;: &quot;/Users/fabriciomaldonado/fabricio/personal/LinkPay/frontend/frontend/node_modules/typescript/lib&quot;
   }
-}]]></component>
+}</component>
   <component name="TaskManager">
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="feat: add employee payment status and network details to employee list" />
     <MESSAGE value="feat: enhance dashboard with employee count and USDC balance display" />
-    <option name="LAST_COMMIT_MESSAGE" value="feat: enhance dashboard with employee count and USDC balance display" />
+    <MESSAGE value="feat: refactor calendar and chart components for improved icon handling and tooltip structure" />
+    <MESSAGE value="feat: update USDC approval allowance to reflect correct value and improve comment clarity" />
+    <MESSAGE value="feat: enhance company registration and employee list with wallet connection handling and improved payment status display" />
+    <option name="LAST_COMMIT_MESSAGE" value="feat: enhance company registration and employee list with wallet connection handling and improved payment status display" />
   </component>
 </project>

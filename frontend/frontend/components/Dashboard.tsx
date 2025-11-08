@@ -1,12 +1,12 @@
-import { Building2, Wallet, Users, Calendar } from 'lucide-react';
+import { Wallet, Users, Calendar } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 
 interface DashboardProps {
   companies: Company[];
   payments: Payment[];
   employees?: Employee[];
-  currentCompanyId?: number;
   usdcBalance?: string;
+  currentCompanyId?: number;
 }
 
 interface Employee {
@@ -33,25 +33,38 @@ interface Payment {
   timestamp?: number;
 }
 
-export function Dashboard({ companies, payments, employees = [], currentCompanyId = 0, usdcBalance = '0' }: DashboardProps) {
-  const totalCompanies = companies.length;
-  const totalPayments = payments.length;
+export function Dashboard({ companies, payments, employees = [], usdcBalance = '0', currentCompanyId }: DashboardProps) {
   const completedPayments = payments.filter(p => p.status === 'completed').length;
   const totalPaid = payments.filter(p => p.status === 'completed').reduce((sum, p) => sum + p.amount, 0);
 
-  // Filter employees for current company
-  const myEmployees = employees.length;
+  const myEmployees = employees?.length || 0;
+  const companyName = companies[0]?.name || 'Dashboard';
+  const hasCompany = currentCompanyId && currentCompanyId > 0;
 
   const recentPayments = payments.slice(0, 5);
 
   return (
     <div className="space-y-6">
       <div>
-        <h2>Dashboard</h2>
-        <p className="text-gray-500">Overview of your company payment system</p>
+        <h2>{companyName}</h2>
+        <p className="text-gray-500">
+          {hasCompany ? 'Overview of your company payment system' : 'Register your company to get started'}
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {!hasCompany ? (
+        <Card>
+          <CardContent className="py-12">
+            <div className="text-center">
+              <Wallet className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-500">No company registered</p>
+              <p className="text-sm text-gray-400 mt-1">Connect your wallet and register your company to start managing payments</p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm">My Employees</CardTitle>
@@ -133,7 +146,6 @@ export function Dashboard({ companies, payments, employees = [], currentCompanyI
                   <div key={payment.id} className="flex items-center justify-between border-b pb-3 last:border-0">
                     <div>
                       <p className="font-medium">{payment.employeeName}</p>
-                      <p className="text-sm text-gray-500">{company?.name || 'Unknown Company'}</p>
                     </div>
                     <div className="text-right">
                       <p className="font-semibold">{payment.amount.toLocaleString()} USDC</p>
@@ -147,6 +159,8 @@ export function Dashboard({ companies, payments, employees = [], currentCompanyI
           )}
         </CardContent>
       </Card>
+      </>
+    )}
     </div>
   );
 }

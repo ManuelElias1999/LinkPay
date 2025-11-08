@@ -14,7 +14,6 @@ interface EmployeeListProps {
   currentCompanyId: number;
   onDelete: (id: string) => void;
   onUpdate: (id: string, data: Omit<Employee, 'id' | 'registrationDate'>) => void;
-  onCompanyChange: (companyId: number) => void;
 }
 
 interface Company {
@@ -36,19 +35,9 @@ interface Employee {
   salary?: string;
 }
 
-export function EmployeeList({ employees, companies, currentCompanyId, onDelete, onUpdate, onCompanyChange }: EmployeeListProps) {
+export function EmployeeList({ employees, companies, currentCompanyId, onDelete, onUpdate }: EmployeeListProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ name: '', walletAddress: '' });
-  const [selectedCompanyId, setSelectedCompanyId] = useState<string>(currentCompanyId > 0 ? currentCompanyId.toString() : (companies.length > 0 ? companies[0].id : ''));
-
-  // Sync selectedCompanyId when currentCompanyId or companies change
-  useEffect(() => {
-    if (currentCompanyId > 0) {
-      setSelectedCompanyId(currentCompanyId.toString());
-    } else if (companies.length > 0 && !selectedCompanyId) {
-      setSelectedCompanyId(companies[0].id);
-    }
-  }, [currentCompanyId, companies, selectedCompanyId]);
 
   const handleEdit = (employee: Employee) => {
     setEditingId(employee.id);
@@ -66,49 +55,34 @@ export function EmployeeList({ employees, companies, currentCompanyId, onDelete,
     setEditForm({ name: '', walletAddress: '' });
   };
 
-  const handleCompanyChange = (companyId: string) => {
-    setSelectedCompanyId(companyId);
-    onCompanyChange(parseInt(companyId));
-  };
+  // Get current company name
+  const currentCompany = companies.find(c => parseInt(c.id) === currentCompanyId);
+  const companyName = currentCompany?.name || 'Employees';
+  const hasCompany = currentCompanyId && currentCompanyId > 0;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2>Employee List</h2>
-          <p className="text-gray-500">Manage your registered employees</p>
+          <h2>{hasCompany ? `${companyName} - Employees` : 'Employees'}</h2>
+          <p className="text-gray-500">
+            {hasCompany ? 'Manage your registered employees' : 'Register your company to add employees'}
+          </p>
         </div>
-        <Badge variant="secondary">{employees.length} Employees</Badge>
+        {hasCompany && <Badge variant="secondary">{employees.length} Employees</Badge>}
       </div>
 
-      {/* Company Selector */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-center gap-4">
-            <Label htmlFor="companySelect" className="whitespace-nowrap font-medium">
-              Select Company:
-            </Label>
-            <select
-              id="companySelect"
-              value={selectedCompanyId}
-              onChange={(e) => handleCompanyChange(e.target.value)}
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
-            >
-              {companies.length === 0 ? (
-                <option value="">No companies registered</option>
-              ) : (
-                companies.map((company) => (
-                  <option key={company.id} value={company.id}>
-                    {company.name} (ID: {company.id})
-                  </option>
-                ))
-              )}
-            </select>
-          </div>
-        </CardContent>
-      </Card>
-
-      {employees.length === 0 ? (
+      {!hasCompany ? (
+        <Card>
+          <CardContent className="py-12">
+            <div className="text-center">
+              <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-500">No company registered</p>
+              <p className="text-sm text-gray-400 mt-1">Register your company to start adding employees</p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : employees.length === 0 ? (
         <Card>
           <CardContent className="py-12">
             <div className="text-center">
