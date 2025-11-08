@@ -4,15 +4,13 @@ pragma solidity ^0.8.17;
 import {IRouterClient} from "@chainlink/contracts-ccip@1.6.2/contracts/interfaces/IRouterClient.sol";
 import {Client} from "@chainlink/contracts-ccip@1.6.2/contracts/libraries/Client.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
  * @title PayrollManager with Chainlink Automation & CCIP
  * @notice This project is a payroll management platform for companies and employees, supporting USDC-based payment automation both on the same chain and cross-chain.
  *
- * @custom:verified-address Base Sepolia: 0x297599530b23464BD1920093Eb1aaB970b4c6B37
- * https://testnet.routescan.io/address/0x297599530b23464BD1920093Eb1aaB970b4c6B37/contract/84532/code
- * https://repo.sourcify.dev/84532/0x297599530b23464BD1920093Eb1aaB970b4c6B37
- * https://base-sepolia.blockscout.com/address/0x297599530b23464BD1920093Eb1aaB970b4c6B37?tab=contract
+ * @custom:verified-address Base Sepolia: https://sepolia.basescan.org/address/0x291AB221FB0E8C8EEE246E9476Bb2E892D82DcaB#code
  *
  * - The contract allows companies to register, manage employees, and schedule or automate salary payments on multiple chains.
  * - Chainlink Automation is used to automatically check if salary payouts are due and execute payments when needed, eliminating manual intervention.
@@ -24,16 +22,6 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 /// ---------------------------------------------------------------
 ///                        INTERFACES
 /// ---------------------------------------------------------------
-interface IERC20 {
-    function totalSupply() external view returns (uint256);
-    function balanceOf(address account) external view returns (uint256);
-    function transfer(address to, uint256 amount) external returns (bool);
-    function allowance(address owner, address spender) external view returns (uint256);
-    function approve(address spender, uint256 amount) external returns (bool);
-    function transferFrom(address from, address to, uint256 amount) external returns (bool);
-    function safeTransfer(address to, uint256 amount) external returns (bool);
-}
-
 interface AutomationCompatibleInterface {
     function checkUpkeep(bytes calldata checkData) external returns (bool upkeepNeeded, bytes memory performData);
     function performUpkeep(bytes calldata performData) external;
@@ -259,6 +247,29 @@ contract PayrollManager is AutomationCompatibleInterface {
 
         e.active = false;
         emit EmployeeDeactivated(_companyId, _employeeId);
+    }
+
+    /// @notice Owner can completely delete a company, freeing the owner's wallet
+    function deleteCompany(uint256 _companyId) external onlyOwner {
+        Company storage c = companies[_companyId];
+        require(c.active, "company inactive or already deleted");
+
+        delete companyOfOwner[c.owner];
+
+        for (uint256 i = 0; i < c.employeeIds.length; i++) {
+            uint256 eid = c.employeeIds[i];
+            delete employees[eid];
+        }
+
+        delete companies[_companyId];
+
+        for (uint256 i = 0; i < companyIds.length; i++) {
+            if (companyIds[i] == _companyId) {
+                companyIds[i] = companyIds[companyIds.length - 1];
+                companyIds.pop();
+                break;
+            }
+        }
     }
 
     /// ---------------------------------------------------------------
