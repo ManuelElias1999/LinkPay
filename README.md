@@ -16,6 +16,8 @@
 
 Traditional payroll systems are often **slow, expensive, and require manual processing**. LinkPay solves this by combining **Chainlink Automation** and **Chainlink CCIP** to create a **borderless, transparent, and self-operating payroll solution**.
 
+### LinkPay platform
+![LinkPay platform](./images/platform.jpeg)
 ---
 
 ## ⚙️ How It Works
@@ -151,7 +153,7 @@ Open an issue in the GitHub repository or contact the development team for assis
 ![Payment in Base](./images/Base.png)
 
 ### Payment in Arbitrum
-![Payment in Arbitrum](./images/CCIP_Arbitrum.pngg)
+![Payment in Arbitrum](./images/CCIP_Arbitrum.png)
 
 ### Payment in Avalanche
 ![Payment in Avalanche](./images/CCIP_Avalanche.png)
